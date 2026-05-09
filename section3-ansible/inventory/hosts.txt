@@ -1,0 +1,3 @@
+[vm]
+vm1_ubuntu ansible_host=192.168.40.137
+vm2_ubuntu ansible_host=192.168.40.135

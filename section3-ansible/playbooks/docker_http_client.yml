@@ -1,0 +1,72 @@
+- name: Setup Docker and run HTTP client
+  hosts: vm
+  become: yes
+
+  vars:
+    image_name: http-client
+    container_name: http-client-container
+    app_dir: /opt/http-client
+
+  tasks:
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Start Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user_id }}"
+        groups: docker
+        append: yes
+
+    - name: Check Docker version
+      command: docker --version
+      register: docker_version
+
+    - debug:
+        var: docker_version.stdout
+
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+
+    - name: Copy project files
+      copy:
+        src: "{{ item }}"
+        dest: "{{ app_dir }}/"
+      loop:
+        - ../files/Dockerfile
+        - ../files/http_client.py
+        - ../files/requirements.txt
+
+    - name: Remove old container (if exists)
+      command: docker rm -f {{ container_name }}
+      ignore_errors: yes
+
+    - name: Build Docker image
+      command: docker build -t {{ image_name }} {{ app_dir }}
+
+    - name: Run container
+      command: docker run --name {{ container_name }} {{ image_name }}
+      register: container_run
+
+    - name: Get container logs
+      command: docker logs {{ container_name }}
+      register: container_logs
+
+    - name: Show logs
+      debug:
+        var: container_logs.stdout
+
+    - name: Check exit code
+      debug:
+        msg: "Container exited with exit code {{ container_run.rc }}"
